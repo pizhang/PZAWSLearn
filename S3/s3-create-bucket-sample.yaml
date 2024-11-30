@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Create a S3 bucket with a parameter to provide the prefix name, 
+  with public access blocked,
+  version enabled,
+  default server side encryption enabled,
+  and EventBridge event notification enabled, and 
+  a bucket policy to allow read and listbucket, 
+  and output the bucket name.
+
+Parameters:
+  PrefixName:
+    Description: 'Provide a prefix name for the bucket'
+    Type: String
+    Default: 's3-bucket-sample'
+    MinLength: 5
+    MaxLength: 20
+
+Resources:
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub '${PrefixName}-${AWS::AccountId}-${AWS::Region}'
+      AccessControl: Private
+      BucketEncryption: 
+        ServerSideEncryptionConfiguration: 
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration: 
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      NotificationConfiguration:
+        EventBridgeConfiguration: {
+          "EventBridgeEnabled": true
+        }
+      LifecycleConfiguration:
+        Rules:
+          - NoncurrentVersionExpirationInDays: 1
+            Status: Enabled
+            ExpirationInDays: 7
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: S3Bucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:ListBucket
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Resource:
+              - !Sub '${S3Bucket.Arn}/*'
+              - !Sub '${S3Bucket.Arn}'
+    DependsOn: S3Bucket
+
+Outputs:
+  S3BucketName:
+    Description: 'S3 Bucket Name'
+    Value: !Ref S3Bucket
