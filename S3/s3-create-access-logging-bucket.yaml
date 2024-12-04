@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: > 
+  Create a S3 bucket for saving server access logs for all S3 buckets in the AWS account.
+  This bucket name is getting from parameter, with default prefixname as "s3-access-logging",
+  with default encryption enabled,
+  and create the bucket policy to allow all S3 buckets in the same AWS account to save server access logs,
+  and disable server access logging for itself to avoid looping.
+Parameters:
+  PrefixName:
+    Description: > 
+      The prefix name of the S3 bucket to store all S3 server access logs.
+      The bucket name must be globally unique.
+    Type: String
+    Default: s3-access-logging
+Resources:
+  S3AccessLogBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub '${PrefixName}-${AWS::AccountId}-${AWS::Region}'
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: True
+  S3AccessLogBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        !Ref S3AccessLogBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: logging.s3.amazonaws.com
+            Action: s3:PutObject
+            Resource:
+              - !Sub '${S3AccessLogBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
