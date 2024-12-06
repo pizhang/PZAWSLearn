@@ -22,8 +22,8 @@ def enable_access_logging(bucket_name):
             target_bucket = response['LoggingEnabled']['TargetBucket']
             target_prefix = response['LoggingEnabled']['TargetPrefix']
             if target_bucket == DESTINATION_BUCKET_NAME and target_prefix == f'{bucket_name}/':
-                print(f"Server access logging is already correctly enabled "
-                      "for bucket: {bucket_name}")
+                print("Server access logging is already correctly enabled "
+                      f"for bucket: {bucket_name}")
                 return
             
             print(f"Server access logging is already enabled for bucket: {bucket_name}, "
