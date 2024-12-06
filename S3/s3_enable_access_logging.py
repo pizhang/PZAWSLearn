@@ -11,7 +11,7 @@ import boto3
 s3 = boto3.client('s3')
 
 # Define the destination S3 bucket for server access logs
-DESTINATION_BUCKET_NAME = 's3-access-logging-029378792203-ap-southeast-2'
+DESTINATION_BUCKET_NAME = '##############################'
 
 def enable_access_logging(bucket_name):
     """Enable server access logging for one bucket"""
