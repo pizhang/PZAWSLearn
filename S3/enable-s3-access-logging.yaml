@@ -1,0 +1,66 @@
+# This AWS SAM template has been generated from your function's configuration. If
+# your function has one or more triggers, note that the AWS resources associated
+# with these triggers aren't fully specified in this template and include
+# placeholder values. Open this template in AWS Infrastructure Composer or your
+# favorite IDE and modify it to specify a serverless application with other AWS
+# resources.
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: An AWS Serverless Application Model template describing your function.
+Resources:
+  enables3accesslogging:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://ops-repo-lambda-############-ap-southeast-2/s3-enable-access-logging/lambda_function.py.zip
+      Description: ''
+      MemorySize: 128
+      Timeout: 3
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.13
+      Architectures:
+        - x86_64
+      EphemeralStorage:
+        Size: 512
+      EventInvokeConfig:
+        MaximumEventAgeInSeconds: 21600
+        MaximumRetryAttempts: 2
+      PackageType: Zip
+      Policies:
+        - Statement:
+            - Sid: VisualEditor0
+              Effect: Allow
+              Action:
+                - s3:ListAllMyBuckets
+                - s3:GetBucketLogging
+              Resource: '*'
+            - Sid: VisualEditor1
+              Effect: Allow
+              Action:
+                - s3:PutBucketLogging
+              Resource: '*'
+              Condition:
+                ArnNotEquals:
+                  aws:SourceArn:
+                    - arn:aws:s3:::s3-access-logging-############-ap-southeast-2
+                    - arn:aws:s3:::cf-templates*
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+              Resource: arn:aws:logs:ap-southeast-2:############:*
+            - Effect: Allow
+              Action:
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource:
+                - >-
+                  arn:aws:logs:ap-southeast-2:############:log-group:/aws/lambda/enable-s3-access-logging:*
+      RecursiveLoop: Terminate
+      SnapStart:
+        ApplyOn: None
+      Events:
+        Schedule1:
+          Type: Schedule
+          Properties:
+            Schedule: rate(10 minute)
+      RuntimeManagementConfig:
+        UpdateRuntimeOn: Auto
