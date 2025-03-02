@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Demo SQS Queue with CloudTrail logging (Fixed)
+
+Resources:
+  DemoQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: DemoQueue
+      VisibilityTimeout: 30
+
+  CloudTrailBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - ExpirationInDays: 7
+            Status: Enabled
+            Id: ExpireAfter7Days
+
+  CloudTrailBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref CloudTrailBucket
+      PolicyDocument:
+        Statement:
+          - Sid: CloudTrailAclCheck
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: s3:GetBucketAcl
+            Resource: !GetAtt CloudTrailBucket.Arn
+          - Sid: CloudTrailWrite
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub "${CloudTrailBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                s3:x-amz-acl: bucket-owner-full-control
+
+  DemoCloudTrail:
+    Type: AWS::CloudTrail::Trail
+    DependsOn: CloudTrailBucketPolicy
+    Properties:
+      IsLogging: true
+      S3BucketName: !Ref CloudTrailBucket
+      IncludeGlobalServiceEvents: false
+      IsMultiRegionTrail: false
+      TrailName: DemoQueueTrail
+      AdvancedEventSelectors:
+      - FieldSelectors:
+          - Field: "eventCategory"
+            Equals:
+              - "Data"
+          - Field: "resources.type"
+            Equals:
+              - "AWS::SQS::Queue"
+          - Field: "resources.ARN"
+            Equals:
+              - !GetAtt DemoQueue.Arn
+
+Outputs:
+  QueueURL:
+    Description: SQS Queue URL
+    Value: !Ref DemoQueue
+  QueueARN:
+    Description: SQS Queue ARN
+    Value: !GetAtt DemoQueue.Arn
+  CloudTrailBucketName:
+    Description: CloudTrail Logs Bucket
+    Value: !Ref CloudTrailBucket
