@@ -1,0 +1,17 @@
+QUEUE_URL=<Your SQS Queue URL>
+
+# Send message
+aws sqs send-message --queue-url $QUEUE_URL --message-body "Test Message"
+
+# Receive message
+MESSAGE=$(aws sqs receive-message --queue-url $QUEUE_URL)
+
+RECEIPT_HANDLE=$(echo $MESSAGE | jq -r '.Messages[0].ReceiptHandle')
+
+BODY=$(echo $MESSAGE | jq -r '.Messages[0].Body')
+
+# Process message
+echo "Processing message: $BODY"
+
+# Delete after processing
+aws sqs delete-message --queue-url $QUEUE_URL --receipt-handle $RECEIPT_HANDLE
