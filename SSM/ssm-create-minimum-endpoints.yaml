@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to create VPC endpoints for SSM, EC2 Messages, and SSM Session Manager
+
+Parameters:
+  VPCId:
+    Type: AWS::EC2::VPC::Id
+    Description: The ID of the VPC where the endpoints will be deployed.
+  
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: A list of subnet IDs where the endpoints will be deployed.
+  
+  SecurityGroupIds:
+    Type: CommaDelimitedList
+    Description: List of security group IDs for the endpoints
+
+Resources:
+  SSMEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPCId
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
+      VpcEndpointType: Interface
+      SubnetIds: !Ref SubnetIds
+      SecurityGroupIds:
+        - !Select [0, !Ref SecurityGroupIds]
+      PrivateDnsEnabled: true
+
+  EC2MessagesEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPCId
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
+      VpcEndpointType: Interface
+      SubnetIds: !Ref SubnetIds
+      SecurityGroupIds:
+        - !Select [0, !Ref SecurityGroupIds]
+      PrivateDnsEnabled: true
+
+  SSMSessionManagerEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPCId
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
+      VpcEndpointType: Interface
+      SubnetIds: !Ref SubnetIds
+      SecurityGroupIds:
+        - !Select [0, !Ref SecurityGroupIds]
+      PrivateDnsEnabled: true
+
+Outputs:
+  SSMEndpointId:
+    Description: The ID of the SSM endpoint
+    Value: !Ref SSMEndpoint
+
+  EC2MessagesEndpointId:
+    Description: The ID of the EC2 Messages endpoint
+    Value: !Ref EC2MessagesEndpoint
+
+  SSMSessionManagerEndpointId:
+    Description: The ID of the SSM Session Manager endpoint
+    Value: !Ref SSMSessionManagerEndpoint
