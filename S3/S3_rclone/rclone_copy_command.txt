@@ -1,0 +1,1 @@
+rclone copy C:\Temp\Logs S3_Demo_IAMRole_OneZoneIA:rclone-demo-509399591785-ap-southeast-2/Logs/ --check-first --checkers 400 --progress

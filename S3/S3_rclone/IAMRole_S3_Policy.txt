@@ -1,0 +1,54 @@
+----------------
+* * * * * * * * Part I: EC2 Role
+----------------
+
+Policy Name: policy_demo_s3_bucket_write
+
+JSON
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "Statement1",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetObject",
+                "s3:PutObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::rclone-demo-509399591785-ap-southeast-2",
+                "arn:aws:s3:::rclone-demo-509399591785-ap-southeast-2/*"
+            ]
+        }
+    ]
+}
+
+Role Name: role_demo_ec2_s3_bucket_write
+
+----------------
+* * * * * * * * Part II: Bucket Policy:
+----------------
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "Statement1",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::509399591785:role/role_demo_s3_bucket_write"
+            },
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetObject",
+                "s3:PutObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::rclone-demo-509399591785-ap-southeast-2",
+                "arn:aws:s3:::rclone-demo-509399591785-ap-southeast-2/*"
+            ]
+        }
+    ]
+}
