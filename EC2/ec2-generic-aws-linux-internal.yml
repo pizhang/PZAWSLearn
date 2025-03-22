@@ -1,0 +1,112 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: > 
+  This CloudFormation Template will create the following:
+  - A launch template requiring IMDSv2
+  - A security group that allows inbound ICMP, SSH from 10.0.0.0/8, and outbound to all traffic in 10.0.0.0/8
+  - An AWS Linux 2023 Latest AMI
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - t3.medium
+      - t3.large
+    Description: EC2 instance type
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: KeyPair for Linux instances
+  LatestAL2023AMI:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for the EC2 instance
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Target subnet ID for the EC2 instance
+
+Resources:
+  AL2023SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Windows instance allowing RDP and WinRM
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 10.0.0.0/8
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 10.0.0.0/8
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 10.0.0.0/8
+
+  AL2023EC2LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        ImageId: !Ref LatestAL2023AMI
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyPairName
+        MetadataOptions:
+          HttpTokens: required
+          HttpEndpoint: enabled
+          InstanceMetadataTags: enabled
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            SubnetId: !Ref SubnetId
+            AssociatePublicIpAddress: false
+            Groups:
+              - !GetAtt AL2023SecurityGroup.GroupId
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs:
+              VolumeSize: 20
+              VolumeType: gp3
+              DeleteOnTermination: true
+              Encrypted: true
+
+  AL2023EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref AL2023EC2LaunchTemplate
+        Version: !GetAtt AL2023EC2LaunchTemplate.LatestVersionNumber
+
+Outputs:
+  InstanceId:
+    Description: AL2023 EC2 Instance ID
+    Value: !Ref AL2023EC2Instance
+  SecurityGroupId:
+    Description: Created Security Group ID
+    Value: !GetAtt AL2023SecurityGroup.GroupId
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: EC2 Configuration
+        Parameters:
+          - InstanceType
+          - KeyPairName
+          - LatestAL2023AMI
+      - Label:
+          default: Network Configuration
+        Parameters:
+          - VpcId 
+          - SubnetID
+    ParameterLabels:
+      InstanceType:
+        default: Instance Type
+      KeyName:
+        default: Key Pair Name
+      SubnetID:
+        default: Target Subnet

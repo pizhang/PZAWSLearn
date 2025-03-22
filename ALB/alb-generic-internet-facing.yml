@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Internet-facing ALB with custom listener rules and security best practices
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID where the ALB will be deployed
+
+  Subnet1Id:
+    Type: AWS::EC2::Subnet::Id
+    Description: First subnet for ALB placement
+
+  Subnet2Id:
+    Type: AWS::EC2::Subnet::Id
+    Description: Second subnet for ALB placement
+
+  AlbName:
+    Type: String
+    Description: Name for the Application Load Balancer
+
+  AccessLogsBucketName:
+    Type: String
+    Description: Name of the existing S3 bucket for access logs
+
+Resources:
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Application Load Balancer
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: Allow HTTP access from anywhere
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: Allow HTTPS access from anywhere
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic
+
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Ref AlbName
+      Type: application
+      Scheme: internet-facing
+      Subnets:
+        - !Ref Subnet1Id
+        - !Ref Subnet2Id
+      SecurityGroups:
+        - !GetAtt ALBSecurityGroup.GroupId
+      LoadBalancerAttributes:
+        - Key: access_logs.s3.enabled
+          Value: 'true'
+        - Key: access_logs.s3.bucket
+          Value: !Ref AccessLogsBucketName
+        - Key: access_logs.s3.prefix
+          Value: !Sub ${AlbName}-logs
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            StatusCode: '503'
+            ContentType: 'text/plain'
+            MessageBody: 'Service Not Available'
+
+  TestTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: tg-test
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      TargetType: ip
+
+  HostHeaderRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref ALBListener
+      Priority: 1
+      Conditions:
+        - Field: host-header
+          Values: [www.test.com]
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TestTargetGroup
+
+Outputs:
+  ALBDNSName:
+    Description: DNS Name of the Application Load Balancer
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+  ALBSecurityGroupId:
+    Description: Security Group ID of the ALB
+    Value: !GetAtt ALBSecurityGroup.GroupId
+  TargetGroupArn:
+    Description: ARN of the test target group
+    Value: !Ref TestTargetGroup

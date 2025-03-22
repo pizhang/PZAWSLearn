@@ -5,7 +5,7 @@ $folderPath = "C:\Temp\Logs"
 [System.IO.Directory]::CreateDirectory($folderPath) | Out-Null
 
 # Set total size (5GB as Int64)
-$totalSize = [Int64]5 * 1024 * 1024 * 1024
+$totalSize = [Int64]25 * 1024 * 1024 * 1024
 $currentSize = [Int64]0
 $start = [System.Diagnostics.Stopwatch]::StartNew()
 
