@@ -1,0 +1,126 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: > 
+  This CloudFormation Template will create:
+  - Private subnet EC2 instance with web server
+  - Security group allowing HTTP access from ALB
+  - AWS Linux 2023 with automatic Apache setup
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - t3.medium
+      - t3.large
+    Description: EC2 instance type
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: KeyPair for SSH access
+  LatestAL2023AMI:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for the EC2 instance
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Private subnet for EC2 instance
+
+Resources:
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for web server
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: Allow HTTP access
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 10.0.0.0/8
+          Description: Allow ICMP access
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 10.0.0.0/8
+          Description: SSH access
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+
+  WebServerLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        ImageId: !Ref LatestAL2023AMI
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyPairName
+        MetadataOptions:
+          HttpTokens: required
+          HttpEndpoint: enabled
+          InstanceMetadataTags: enabled
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            SubnetId: !Ref SubnetId
+            AssociatePublicIpAddress: false
+            Groups:
+              - !GetAtt WebServerSecurityGroup.GroupId
+        UserData: 
+          Fn::Base64: |
+            #!/bin/bash
+            sudo dnf update -y
+            sudo dnf install -y httpd
+            sudo systemctl start httpd
+            sudo systemctl enable httpd
+            echo "<h1>Hello from AWS Linux 2023</h1>" | sudo tee /var/www/html/index.html
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 12
+              VolumeType: gp3
+              DeleteOnTermination: true
+              Encrypted: true
+
+  WebServerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref WebServerLaunchTemplate
+        Version: !GetAtt WebServerLaunchTemplate.LatestVersionNumber
+
+Outputs:
+  InstanceId:
+    Description: Web Server Instance ID
+    Value: !Ref WebServerInstance
+  SecurityGroupId:
+    Description: Web Server Security Group ID
+    Value: !GetAtt WebServerSecurityGroup.GroupId
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: EC2 Configuration
+        Parameters:
+          - InstanceType
+          - KeyPairName
+          - LatestAL2023AMI
+      - Label:
+          default: Network Configuration
+        Parameters:
+          - VpcId 
+          - SubnetId
+    ParameterLabels:
+      InstanceType:
+        default: Instance Type
+      KeyPairName:
+        default: Key Pair Name
+      SubnetId:
+        default: Public Subnet

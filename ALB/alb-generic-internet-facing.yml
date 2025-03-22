@@ -22,6 +22,10 @@ Parameters:
     Type: String
     Description: Name of the existing S3 bucket for access logs
 
+  TargetGroupArn:
+    Type: String
+    Description: Target group ARN for the ALB
+
 Resources:
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -41,8 +45,8 @@ Resources:
           Description: Allow HTTPS access from anywhere
       SecurityGroupEgress:
         - IpProtocol: '-1'
-          CidrIp: 0.0.0.0/0
-          Description: Allow all outbound traffic
+          CidrIp: 10.0.0.0/8
+          Description: Allow all outbound traffic to internal subnets
 
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
@@ -76,20 +80,6 @@ Resources:
             ContentType: 'text/plain'
             MessageBody: 'Service Not Available'
 
-  TestTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Name: tg-test
-      Port: 80
-      Protocol: HTTP
-      VpcId: !Ref VpcId
-      HealthCheckPath: /
-      HealthCheckIntervalSeconds: 30
-      HealthCheckTimeoutSeconds: 5
-      HealthyThresholdCount: 2
-      UnhealthyThresholdCount: 2
-      TargetType: ip
-
   HostHeaderRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
@@ -97,10 +87,10 @@ Resources:
       Priority: 1
       Conditions:
         - Field: host-header
-          Values: [www.test.com]
+          Values: [aws.awslearn.publicvm.com]
       Actions:
         - Type: forward
-          TargetGroupArn: !Ref TestTargetGroup
+          TargetGroupArn: !Ref TargetGroupArn
 
 Outputs:
   ALBDNSName:
@@ -109,6 +99,3 @@ Outputs:
   ALBSecurityGroupId:
     Description: Security Group ID of the ALB
     Value: !GetAtt ALBSecurityGroup.GroupId
-  TargetGroupArn:
-    Description: ARN of the test target group
-    Value: !Ref TestTargetGroup
