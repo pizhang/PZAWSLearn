@@ -28,17 +28,17 @@ Parameters:
 
   HostHeader01:
     Type: String
-    Default: aws.awslearn.publicvm.com
+    Default: yourdomain.com
     Description: Host header value for forwarding rule
 
   HostHeader02:
     Type: String
-    Default: g.awslearn.publicvm.com
+    Default: yourdomain.com
     Description: Host header value for redirect rule
 
   RedirectTarget:
     Type: String
-    Default: www.google.com
+    Default: www.yourdomain.com
     Description: URL to redirect matching requests to    
 
 Resources:
