@@ -1,3 +1,37 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Create Nat Gateway for Private Subnets
+Description: Create NAT Gateway for existing infrastructure
 
+Parameters:
+  PublicSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: ID of the EXISTING public subnet where NAT Gateway will be placed
+  PrivateRouteTable:
+    Type: String
+    Description: ID of the EXISTING route table for first private subnet
+
+Resources:
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      ConnectivityType: public
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnetId
+    DependsOn: NatGatewayEIP
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+Outputs:
+  NatGatewayId:
+    Value: !Ref NatGateway
+  NatGatewayEIP:
+    Value: !Ref NatGatewayEIP

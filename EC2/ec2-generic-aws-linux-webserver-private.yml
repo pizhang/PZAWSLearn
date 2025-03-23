@@ -123,4 +123,4 @@ Metadata:
       KeyPairName:
         default: Key Pair Name
       SubnetId:
-        default: Public Subnet
+        default: Private Subnet

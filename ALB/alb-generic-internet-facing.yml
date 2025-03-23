@@ -8,11 +8,11 @@ Parameters:
 
   Subnet1Id:
     Type: AWS::EC2::Subnet::Id
-    Description: First subnet for ALB placement
+    Description: First public subnet for ALB placement
 
   Subnet2Id:
     Type: AWS::EC2::Subnet::Id
-    Description: Second subnet for ALB placement
+    Description: Second public subnet for ALB placement
 
   AlbName:
     Type: String
@@ -25,6 +25,21 @@ Parameters:
   TargetGroupArn:
     Type: String
     Description: Target group ARN for the ALB
+
+  HostHeader01:
+    Type: String
+    Default: aws.awslearn.publicvm.com
+    Description: Host header value for forwarding rule
+
+  HostHeader02:
+    Type: String
+    Default: g.awslearn.publicvm.com
+    Description: Host header value for redirect rule
+
+  RedirectTarget:
+    Type: String
+    Default: www.google.com
+    Description: URL to redirect matching requests to    
 
 Resources:
   ALBSecurityGroup:
@@ -80,17 +95,35 @@ Resources:
             ContentType: 'text/plain'
             MessageBody: 'Service Not Available'
 
-  HostHeaderRule:
+  HostHeaderRule01:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
       ListenerArn: !Ref ALBListener
       Priority: 1
       Conditions:
         - Field: host-header
-          Values: [aws.awslearn.publicvm.com]
+          Values: [!Ref HostHeader01]
       Actions:
         - Type: forward
           TargetGroupArn: !Ref TargetGroupArn
+
+  # New rule for g.awslearn.publicvm.com redirect
+  HostHeaderRule02:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref ALBListener
+      Priority: 2
+      Conditions:
+        - Field: host-header
+          Values: [!Ref HostHeader02]
+      Actions:
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Host: !Ref RedirectTarget
+            Port: '443'
+            StatusCode: HTTP_301
+            Path: /
 
 Outputs:
   ALBDNSName:
