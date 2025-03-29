@@ -1,0 +1,168 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Export ELB and Target Group information to S3
+
+Parameters:
+  S3BucketName:
+    Type: String
+    Description: Name of the S3 bucket to store reports
+  ScheduleExpression:
+    Type: String
+    Default: cron(0 21 * * ? *)
+    Description: "EventBridge schedule expression (UTC time)"
+
+Resources:
+  ReportBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldReports
+            Status: Enabled
+            ExpirationInDays: 60
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ELB-S3-Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - elasticloadbalancing:Describe*
+                Resource: "*"
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub "arn:aws:s3:::${S3BucketName}/*"
+
+  ELBExporterFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: ELB-Exporter
+      Runtime: python3.13
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaRole.Arn
+      Timeout: 300
+      Environment:
+        Variables:
+          S3_BUCKET: !Ref S3BucketName
+      Code:
+        ZipFile: |
+          import os
+          import boto3
+          import json
+          import datetime
+          
+          elbv2 = boto3.client('elbv2')
+          s3 = boto3.client('s3')
+          
+
+          def get_listeners(lb_arn):
+              listeners = []
+              paginator = elbv2.get_paginator('describe_listeners')
+              for page in paginator.paginate(LoadBalancerArn=lb_arn):
+                  listeners.extend(page['Listeners'])
+              return listeners
+
+          
+          def get_lb_attributes(lb_arn):
+              response = elbv2.describe_load_balancer_attributes(
+                  LoadBalancerArn=lb_arn
+              )
+              return {attr['Key']: attr['Value'] for attr in response['Attributes']}             
+
+
+          def lambda_handler(event, context):
+              # Get current timestamp for filename
+              timestamp = datetime.datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')
+
+              # Get the S3 bucket name from environment Variables
+              s3_bucket = os.environ['S3_BUCKET']
+              
+              # Get all load balancers
+              lbs = elbv2.describe_load_balancers()['LoadBalancers']
+              lb_details = []
+              for lb in lbs:
+                  lb_tags = elbv2.describe_tags(ResourceArns=[lb['LoadBalancerArn']])['TagDescriptions'][0]['Tags']
+                  listeners = get_listeners(lb['LoadBalancerArn'])
+                  lb_attributes = get_lb_attributes(lb['LoadBalancerArn'])
+                  lb_details.append({
+                      'LoadBalancerName': lb['LoadBalancerName'],
+                      'Scheme': lb['Scheme'],
+                      'DNSName': lb['DNSName'],
+                      'Type': lb['Type'],
+                      'CreatedTime': lb['CreatedTime'].isoformat(),
+                      'Tags': lb_tags,
+                      'Listeners': listeners,
+                      'LoadBalancerAttributes': lb_attributes
+                  })
+              
+              # Get all target groups
+              tgs = elbv2.describe_target_groups()['TargetGroups']
+              tg_details = []
+              for tg in tgs:
+                  tg_attributes = elbv2.describe_target_group_attributes(TargetGroupArn=tg['TargetGroupArn'])['Attributes']
+                  tg_targethealth = elbv2.describe_target_health(TargetGroupArn=tg['TargetGroupArn'])['TargetHealthDescriptions']
+                  tg_tags = elbv2.describe_tags(ResourceArns=[tg['TargetGroupArn']])['TagDescriptions'][0]['Tags']
+
+                  tg_details.append({
+                      'TargetGroupName': tg['TargetGroupName'],
+                      'TargetGroupAttributes': tg_attributes,
+                      'Targets': tg_targethealth,
+                      'Tags': tg_tags
+                  })
+              
+              # Upload to S3
+              report = {
+                  'timestamp': timestamp,
+                  'load_balancers': lb_details,
+                  'target_groups': tg_details
+              }
+              
+              s3.put_object(
+                  Bucket=s3_bucket,
+                  Key=f'elb-reports/{timestamp}_report.json',
+                  Body=json.dumps(report, indent=2, default=str)
+              )
+              
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('Report generated successfully')
+              }
+
+  ScheduledEvent:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "Daily ELB export trigger"
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ELBExporterFunction.Arn
+          Id: ELBExporterLambdaTarget
+
+  LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ELBExporterFunction.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ScheduledEvent.Arn
+
+Outputs:
+  LambdaFunction:
+    Value: !GetAtt ELBExporterFunction.Arn
+  S3Bucket:
+    Value: !Ref ReportBucket
+  ScheduleRule:
+    Value: !Ref ScheduledEvent
