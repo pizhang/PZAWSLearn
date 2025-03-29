@@ -1,0 +1,23 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SNS Topic with Email Subscription and Filter Policy
+
+Resources:
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: TestFilterPolicyTopic
+
+  EmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref SNSTopic
+      Protocol: email
+      Endpoint: test@test.com  # Replace with your email
+      FilterPolicy:
+        Pause:
+          - "True"  # Messages must include {"Pause": "True"} to be delivered
+
+Outputs:
+  TopicARN:
+    Description: ARN of the SNS Topic
+    Value: !Ref SNSTopic
