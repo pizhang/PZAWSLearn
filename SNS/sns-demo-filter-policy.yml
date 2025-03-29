@@ -1,6 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: SNS Topic with Email Subscription and Filter Policy
 
+Parameters:
+  EmailAddress:
+    Type: String
+    Description: Email address for SNS subscription
+
 Resources:
   SNSTopic:
     Type: AWS::SNS::Topic
@@ -12,10 +17,11 @@ Resources:
     Properties:
       TopicArn: !Ref SNSTopic
       Protocol: email
-      Endpoint: test@test.com  # Replace with your email
+      Endpoint: !Ref EmailAddress # Replace with your email
       FilterPolicy:
         Pause:
-          - "True"  # Messages must include {"Pause": "True"} to be delivered
+          - "True"
+      FilterPolicyScope: MessageAttributes
 
 Outputs:
   TopicARN:
