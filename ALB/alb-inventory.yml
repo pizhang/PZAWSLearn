@@ -49,7 +49,8 @@ Resources:
   ELBExporterFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: ELB-Exporter
+      FunctionName: elb-tg-inventory
+      Description: Export ELB and Target Group information to S3
       Runtime: python3.13
       Handler: index.lambda_handler
       Role: !GetAtt LambdaRole.Arn
