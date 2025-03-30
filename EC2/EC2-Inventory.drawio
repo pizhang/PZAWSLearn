@@ -1,0 +1,56 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.1.1 Chrome/132.0.6834.210 Electron/34.3.3 Safari/537.36" version="26.1.1">
+  <diagram name="Page-1" id="SHrb6NawBMlzmM42IM2I">
+    <mxGraphModel dx="954" dy="727" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="583" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="AoI5bQd-lZXyI8cGa38R-6" value="Creates" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;" parent="1" source="AoI5bQd-lZXyI8cGa38R-2" target="AoI5bQd-lZXyI8cGa38R-4" edge="1">
+          <mxGeometry x="0.1496" y="22" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AoI5bQd-lZXyI8cGa38R-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="AoI5bQd-lZXyI8cGa38R-1" target="AoI5bQd-lZXyI8cGa38R-2" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="AoI5bQd-lZXyI8cGa38R-1" value="CloudFormation" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;shape=mxgraph.aws3.cloudformation;fillColor=#759C3E;gradientColor=none;" parent="1" vertex="1">
+          <mxGeometry x="384" y="90" width="76.5" height="93" as="geometry" />
+        </mxCell>
+        <mxCell id="AoI5bQd-lZXyI8cGa38R-7" value="Creates" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="AoI5bQd-lZXyI8cGa38R-2" target="AoI5bQd-lZXyI8cGa38R-5" edge="1">
+          <mxGeometry x="0.6182" y="34" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AoI5bQd-lZXyI8cGa38R-11" value="Creates" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="AoI5bQd-lZXyI8cGa38R-2" target="AoI5bQd-lZXyI8cGa38R-8" edge="1">
+          <mxGeometry x="0.5605" y="33" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AoI5bQd-lZXyI8cGa38R-2" value="create-ec2-inventory" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#E7157B;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=1;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.stack;" parent="1" vertex="1">
+          <mxGeometry x="384" y="236" width="78" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="AoI5bQd-lZXyI8cGa38R-9" value="json&lt;div&gt;dump&lt;/div&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="AoI5bQd-lZXyI8cGa38R-4" target="AoI5bQd-lZXyI8cGa38R-8" edge="1">
+          <mxGeometry x="0.1729" y="-16" relative="1" as="geometry">
+            <mxPoint y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AoI5bQd-lZXyI8cGa38R-4" value="ec2-inventory" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#ED7100;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.lambda_function;" parent="1" vertex="1">
+          <mxGeometry x="399" y="394.5" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="AoI5bQd-lZXyI8cGa38R-10" value="Daily Trigger" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="AoI5bQd-lZXyI8cGa38R-5" target="AoI5bQd-lZXyI8cGa38R-4" edge="1">
+          <mxGeometry x="-0.081" y="-11" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AoI5bQd-lZXyI8cGa38R-5" value="&lt;br&gt;EventBridge&lt;div&gt;Scheduler&lt;/div&gt;" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#E7157B;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.eventbridge_scheduler;" parent="1" vertex="1">
+          <mxGeometry x="172" y="384.5" width="68" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="AoI5bQd-lZXyI8cGa38R-8" value="S3 bucket" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#7AA116;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.bucket_with_objects;" parent="1" vertex="1">
+          <mxGeometry x="580" y="389.90000000000003" width="55" height="57.2" as="geometry" />
+        </mxCell>
+        <mxCell id="19qvo8A3Y3Lu3uMKC5gv-2" value="&lt;div&gt;Backup EC2 Configurations&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;One Template&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;One&amp;nbsp;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;Output&lt;/span&gt;&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=20;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="103" y="94" width="261" height="120" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
