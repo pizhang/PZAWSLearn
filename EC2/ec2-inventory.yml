@@ -1,0 +1,163 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Export EC2 information to S3
+
+Parameters:
+  S3BucketName:
+    Type: String
+    Description: Name of the S3 bucket to store reports
+  ScheduleExpression:
+    Type: String
+    Default: cron(0 21 * * ? *)
+    Description: "EventBridge schedule expression (UTC time)"
+
+Resources:
+  ReportBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldReports
+            Status: Enabled
+            ExpirationInDays: 60
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: EC2-Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:Describe*
+                Resource: "*"
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub "arn:aws:s3:::${S3BucketName}/*"
+
+  EC2ExporterFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: ec2-inventory
+      Description: Export EC2 information to S3
+      Runtime: python3.12  # Updated to supported version
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaRole.Arn
+      Timeout: 300
+      Environment:
+        Variables:
+          S3_BUCKET: !Ref S3BucketName
+      Code:
+        ZipFile: |
+          import os
+          import boto3
+          import json
+          import datetime
+          from json import JSONEncoder
+          
+          ec2 = boto3.client('ec2')
+          s3 = boto3.client('s3')
+          
+
+          class CustomJSONEncoder(JSONEncoder):
+              def default(self, obj):
+                  if isinstance(obj, datetime.datetime):
+                      return obj.isoformat()
+                  return super().default(self, obj)
+
+
+          def lambda_handler(event, context):
+              # Get current timestamp for filename
+              timestamp = datetime.datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')
+              s3_bucket = os.environ['S3_BUCKET']
+              file_suffix = 'ec2_report.json'
+
+              paginator = ec2.get_paginator('describe_instances')
+              ec2_details = []
+
+              try:
+                  # Collect full instance data with pagination
+                  for page in paginator.paginate():
+                      for reservation in page.get('Reservations',[]):
+                          ec2_details.extend(reservation.get('Instances', []))
+
+                  # Determine filename suffix
+                  if not ec2_details:
+                      print('No EC2 instances found')
+                      file_suffix = 'ec2_empty.json'
+
+                  # Serialize with custom encoder for full fidelity
+                  report = {
+                      'timestamp': timestamp,
+                      'instance_count': len(ec2_details),
+                      'instances': ec2_details
+                  }
+                  
+                  # Write to S3
+                  s3.put_object(
+                      Bucket=s3_bucket,
+                      Key=f'ec2-inventory/{timestamp}_{file_suffix}',
+                      Body=json.dumps(
+                          report,
+                          indent=2, 
+                          cls=CustomJSONEncoder,
+                          sort_keys=True
+                      )
+                  )
+
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps({
+                          'message': 'EC2 inventory report generated successfully',
+                          'instance_count': len(ec2_details),
+                          'timestamp': timestamp
+                      })
+                  }
+              except Exception as e:
+                  print(f'Error during report generation: {e}')
+                  s3.put_object(
+                      Bucket=s3_bucket,
+                      Key=f'ec2-inventory/{timestamp}_error.json',
+                      Body=json.dumps({
+                          'message': 'Error during report generation',
+                          'error': str(e),
+                          'timestamp': timestamp
+                      })
+                  )         
+
+  ScheduledEvent:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "Daily EC2 export trigger"
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt EC2ExporterFunction.Arn
+          Id: EC2ExporterLambdaTarget
+
+  LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt EC2ExporterFunction.Arn  # Fixed typo (ELB->EC2)
+      Action: 'lambda:InvokeFunction'
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ScheduledEvent.Arn
+
+Outputs:
+  LambdaFunction:
+    Value: !GetAtt EC2ExporterFunction.Arn
+  S3Bucket:
+    Value: !Ref ReportBucket
+  ScheduleRule:
+    Value: !Ref ScheduledEvent
