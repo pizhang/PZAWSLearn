@@ -2,8 +2,8 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: > 
   This CloudFormation Template will create the following:
   - A launch template requiring IMDSv2
-  - A security group that allows inbound ICMP, SSH from 10.0.0.0/8, and outbound to all traffic in 10.0.0.0/8
-  - An AWS Linux 2023 Latest AMI
+  - A security group that allows inbound ICMP, RDP and WinRM from 10.0.0.0/8, and outbound to all traffic in 10.0.0.0/8
+  - A Windows EC2 using latest Windows Server 2022 AMI
 
 Parameters:
   InstanceType:
@@ -16,10 +16,10 @@ Parameters:
     Description: EC2 instance type
   KeyPairName:
     Type: AWS::EC2::KeyPair::KeyName
-    Description: KeyPair for Linux instances
-  LatestAL2023AMI:
+    Description: KeyPair for Windows instances
+  LatestWindows2022AMI:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
-    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64
+    Default: /aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base
 
   VpcId:
     Type: AWS::EC2::VPC::Id
@@ -29,15 +29,19 @@ Parameters:
     Description: Target subnet ID for the EC2 instance
 
 Resources:
-  AL2023SecurityGroup:
+  WindowsSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for Linux instance allowing RDP and WinRM
+      GroupDescription: Security group for Windows instance allowing RDP and WinRM
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
+          FromPort: 3389
+          ToPort: 3389
+          CidrIp: 10.0.0.0/8
+        - IpProtocol: tcp
+          FromPort: 5985
+          ToPort: 5986
           CidrIp: 10.0.0.0/8
         - IpProtocol: icmp
           FromPort: -1
@@ -48,46 +52,60 @@ Resources:
           FromPort: -1
           ToPort: -1
           CidrIp: 10.0.0.0/8
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
 
-  AL2023EC2LaunchTemplate:
+  # New IAM Instance Profile referencing the existing role
+  SSMInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - AmazonSSMRoleForInstancesQuickSetup  # Ensure this role exists in your account
+
+  WindowsEC2LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
       LaunchTemplateData:
-        ImageId: !Ref LatestAL2023AMI
+        ImageId: !Ref LatestWindows2022AMI
         InstanceType: !Ref InstanceType
         KeyName: !Ref KeyPairName
         MetadataOptions:
           HttpTokens: required
           HttpEndpoint: enabled
           InstanceMetadataTags: enabled
+        # Attach the IAM Instance Profile
+        IamInstanceProfile:
+          Arn: !GetAtt SSMInstanceProfile.Arn
         NetworkInterfaces:
           - DeviceIndex: 0
             SubnetId: !Ref SubnetId
-            AssociatePublicIpAddress: false
+            AssociatePublicIpAddress: true
             Groups:
-              - !GetAtt AL2023SecurityGroup.GroupId
+              - !GetAtt WindowsSecurityGroup.GroupId
         BlockDeviceMappings:
           - DeviceName: /dev/sda1
             Ebs:
-              VolumeSize: 20
+              VolumeSize: 30
               VolumeType: gp3
               DeleteOnTermination: true
               Encrypted: true
 
-  AL2023EC2Instance:
+  WindowsEC2Instance:
     Type: AWS::EC2::Instance
     Properties:
       LaunchTemplate:
-        LaunchTemplateId: !Ref AL2023EC2LaunchTemplate
-        Version: !GetAtt AL2023EC2LaunchTemplate.LatestVersionNumber
+        LaunchTemplateId: !Ref WindowsEC2LaunchTemplate
+        Version: !GetAtt WindowsEC2LaunchTemplate.LatestVersionNumber
 
 Outputs:
   InstanceId:
-    Description: AL2023 EC2 Instance ID
-    Value: !Ref AL2023EC2Instance
+    Description: Windows EC2 Instance ID
+    Value: !Ref WindowsEC2Instance
   SecurityGroupId:
     Description: Created Security Group ID
-    Value: !GetAtt AL2023SecurityGroup.GroupId
+    Value: !GetAtt WindowsSecurityGroup.GroupId
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -97,7 +115,7 @@ Metadata:
         Parameters:
           - InstanceType
           - KeyPairName
-          - LatestAL2023AMI
+          - LatestWindows2022AMI
       - Label:
           default: Network Configuration
         Parameters:
