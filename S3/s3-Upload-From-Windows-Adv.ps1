@@ -190,6 +190,12 @@ function Test-S3Object {
 }
 #endregion
 
+#region Function IsMultipartETag
+function IsMultipartETag($ETag) {
+    $ETag -match "-\d+$"
+}
+#endregion
+
 #region Upload Files
 
 Get-ChildItem $LocalDirectory -File -Recurse | ForEach-Object {
@@ -206,20 +212,21 @@ Get-ChildItem $LocalDirectory -File -Recurse | ForEach-Object {
     $S3Object = Get-S3Object -BucketName $BucketName -Key $S3Key -ErrorAction SilentlyContinue
 
     if ($S3Object) {
-        LogWrite "$S3Key exists in bucket, skipping upload."
-        Write-Host "$S3Key exists in bucket, skipping upload." -ForegroundColor Green 
+        Write-Host "$S3Key exists in bucket." -ForegroundColor Green
+        LogWrite "$S3Key exists in bucket."
 
         $S3ObjectMetadata = Get-S3ObjectMetadata -BucketName $BucketName -Key $S3Key -ErrorAction SilentlyContinue
         if ($S3ObjectMetadata.Metadata.Count -gt 0) {
             Write-Host "Metadata exists." -ForegroundColor Green
             $LastModifiedMeta= $S3ObjectMetadata["x-amz-meta-lastmodified"]
-            Write-Host $LastModifiedMeta -ForegroundColor Yellow
         }
+
         $Etag = ($S3Object.ETag).Trim('"')
 
         if (-not $LastModifiedMeta) {
+            # Trying to make sure all S3 objects have been added the last modified time of the local file
             if ($Etag -eq $LocalFileHash) {
-                Write-Host "File unchanged (ETag matches). Adding MetaData." -ForegroundColor Yellow
+                Write-Host "File uploaded without adding metadata, file is unchanged (ETag matches). Adding MetaData." -ForegroundColor Yellow
 
                 Copy-S3Object -BucketName $BucketName -Key $S3Key `
                     -DestinationKey $S3Key -MetadataDirective "REPLACE" `
@@ -228,21 +235,28 @@ Get-ChildItem $LocalDirectory -File -Recurse | ForEach-Object {
                     } `
                     -ErrorAction SilentlyContinue
             } else {
-                Write-Host "File changed (ETag does not match)." -ForegroundColor Red
-                if ($OverwritePriority -eq "Local") {
-                    Write-Host "Overwrite Priority is local file, uploading." -ForegroundColor Yellow
-                    Write-S3Object -BucketName $BucketName -Key $S3Key -File $LocalFile -CannedACLName private -Metadata @{
-                        "x-amz-meta-lastmodified" = $LocalFileLastModifiedISO
-                    }
-                    LogWrite "$S3Key uploaded, with local file overwrite S3 object."
-                } elseif ($OverwritePriority -eq "S3") {
-                    Write-Host "Overwrite Priority is not S3, skipping." -ForegroundColor Yellow
+                Write-Host "ETag does not match local file hash." -ForegroundColor Red
+                if (IsMultipartETag($Etag) -eq $true) {
+                    Write-Host "ETag is with a dash, showing this is a multipart upload, skipping." -ForegroundColor Yellow
+                    LogWrite "$S3Key is a multipart upload, skipping."                
                 } else {
-                    Write-Host "Overwrite Priority is Manual, please check." -ForegroundColor Yellow           
+                    Write-Host "ETag is not a multipart upload, try to fix." -ForegroundColor Yellow
+                    LogWrite "$S3Key is not a multipart upload, try to fix according to Overwrite Priority setting."
+                    if ($OverwritePriority -eq "Local") {
+                        Write-Host "Overwrite Priority is 'Local', uploading." -ForegroundColor Yellow
+                        Write-S3Object -BucketName $BucketName -Key $S3Key -File $LocalFile -CannedACLName private -Metadata @{
+                            "x-amz-meta-lastmodified" = $LocalFileLastModifiedISO
+                        }
+                        LogWrite "$S3Key uploaded, with local file overwrite S3 object."
+                    } elseif ($OverwritePriority -eq "S3") {
+                        Write-Host "Overwrite Priority is 'S3', keep the S3 version, which is likely uploaded file with same name, skipping uploading, leaving the object without metadata." -ForegroundColor Yellow
+                    } else {
+                        Write-Host "Overwrite Priority is 'Manual', please check both local file and S3 object to understand." -ForegroundColor Yellow           
+                    }
                 }
-            }
+            } 
         } else {
-            # Compare local file last modified time with S3 metadata last modified time
+            # Compare local file last modified time with S3 metadata last modified time, local file is likely updated
             if ($LocalFileLastModifiedISO -gt $LastModifiedMeta) {
                 Write-Host "Local file is newer than S3 metadata, uploading." -ForegroundColor Yellow
                 Write-S3Object -BucketName $BucketName -Key $S3Key -File $LocalFile -CannedACLName private -Metadata @{
@@ -250,11 +264,14 @@ Get-ChildItem $LocalDirectory -File -Recurse | ForEach-Object {
                 }
                 LogWrite "$S3Key uploaded, with local file overwrite S3 object."
                 Write-Host "Local file is newer than S3 metadata, uploading." -ForegroundColor Green
+            } else if ($LocalFileLastModifiedISO -lt $LastModifiedMeta) {
+                Write-Host "Local file is older than S3 metadata, indicating local file has been restored to older version, skipping upload." -ForegroundColor Yellow
             } else {
-                Write-Host "Local file is not newer than S3 metadata, skipping upload." -ForegroundColor Green
+                Write-Host "Local file last modified time is matching S3 metadata, skipping upload." -ForegroundColor Green
             }
         }
     } else {
+        Write-Host "$S3Key does not exist in bucket, uploading." -ForegroundColor Yellow
         Write-S3Object -BucketName $BucketName -Key $S3Key -File $LocalFile -CannedACLName private -Metadata @{
             "x-amz-meta-lastmodified" = $LocalFileLastModifiedISO
         }
