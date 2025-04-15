@@ -53,6 +53,13 @@ Resources:
           ToPort: -1
           CidrIp: 10.0.0.0/8
 
+  # New IAM Instance Profile referencing the existing role
+  SSMInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - AmazonSSMRoleForInstancesQuickSetup  # Ensure this role exists in your account
+
   WindowsEC2LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -64,6 +71,9 @@ Resources:
           HttpTokens: required
           HttpEndpoint: enabled
           InstanceMetadataTags: enabled
+        # Attach the IAM Instance Profile
+        IamInstanceProfile:
+          Arn: !GetAtt SSMInstanceProfile.Arn
         NetworkInterfaces:
           - DeviceIndex: 0
             SubnetId: !Ref SubnetId
