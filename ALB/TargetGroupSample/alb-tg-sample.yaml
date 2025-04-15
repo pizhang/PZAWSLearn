@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create an application load balancer with a target group utilizing Auto Scaling Group
+
+Parameters:
+  AutoScalingGroupName:
+    Description: The name of the Auto Scaling Group to be associated with the load balancer
+    Type: String
+  AvailabilityZones:
+    Description: The Availability Zones to be used by the load balancer and its associated resources
+    Type: List<AWS::EC2::AvailabilityZone::Name>
+  TargetGroupFullName:
+    Description: The full name of the target group
+    Type: String
+  TargetGroupSubnets:
+    Description: The subnets to be associated with the target group
+    Type: List<AWS::EC2::Subnet::Id>
+  ApplicationLoadBalancerName:
+    Description: The name of the load balancer
+    Type: String
+  ApplicationLoadBalancerScheme:
+    Description: Internet-facing or internal load balancer
+    Type: String
+    AllowedValues:
+      - 'internet-facing'
+      - 'internal'
+    Default: 'internet-facing'
+  ApplicationLoadBalancerSubnets:
+    Description: The subnets to be associated with the load balancer. It should be in different AZs compared to the target group subnets.
+    Type: List<AWS::EC2::Subnet::Id>
+  LaunchTemplateAMI:
+    Description: The AMI used in the launch template for the instances
+    Type: String
+
+Resources:
+  ApplicationLoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join ['-', [!Ref 'ApplicationLoadBalancerName', 'SecurityGroup']]
+      GroupDescription: Security group for the load balancer
+      VpcId:
+        Fn::ImportValue: !Sub '${AutoScalingGroupName}-VPCId'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Join ['-', [!Ref 'TargetGroupFullName', 'ALB']]
+      Type: 'application'
+      Subnets: !Ref 
+      SecurityGroupIngress:
+
+
+  LoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref 'ApplicationLoadBalancer'
+      Port: 80
+      Protocol: 'HTTP'
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref 'TargetGroup'
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Ref 'TargetGroupFullName'
+      VpcId:
+        Fn::ImportValue: !Sub '${AutoScalingGroupName}-VPCId'
+      Port: 80
+      Protocol: 'HTTP'
+      Matcher:
+        HttpCode: 200
+      HealthCheckPath: '/health'
+      HealthCheckProtocol: 'HTTP'
+      Targets:
+        - Id: !Ref 'AutoScalingGroupName'
+          Port: 80
+      Subnets: !Ref 'TargetGroupSubnets'
+
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Join ['-', [!Ref 'TargetGroupFullName', 'LaunchTemplate']]
+      LaunchTemplateData:
+        SecurityGroupIds:
+          - !Ref 'ApplicationLoadBalancerSecurityGroup'
+        ImageId: !Ref 'LaunchTemplateAMI'
+        InstanceType: 't2.micro'
+      VpcSecurityGroupIds:
+        - !Ref 'ApplicationLoadBalancerSecurityGroup'
