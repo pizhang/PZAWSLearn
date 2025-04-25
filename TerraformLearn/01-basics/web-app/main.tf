@@ -22,11 +22,11 @@ provider "aws" {
 }
 
 data "aws_subnet" "public1" {
-    id = "subnet-01413e0a98924db46"
+  id = "subnet-01413e0a98924db46"
 }
 
 data "aws_subnet" "public2" {
-    id = "subnet-04ffaef97ea077eb2"
+  id = "subnet-04ffaef97ea077eb2"
 }
 
 data "aws_vpc" "selected" {
@@ -34,25 +34,25 @@ data "aws_vpc" "selected" {
 }
 
 data "aws_subnets" "public" {
-    filter {
-        name = "vpc-id"
-        values = [data.aws_vpc.selected.id]
-    }
-    
-    tags = {
-        Tier ="public"
-    }
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.selected.id]
+  }
+
+  tags = {
+    Tier = "public"
+  }
 }
 
 resource "aws_security_group" "instances" {
-  name = "tf01-ec2-security-group"
+  name   = "tf01-ec2-security-group"
   vpc_id = data.aws_vpc.selected.id
 }
 
 resource "aws_instance" "instance_1" {
   ami             = var.ami
   instance_type   = "t2.micro"
-  subnet_id = data.aws_subnet.public1.id
+  subnet_id       = data.aws_subnet.public1.id
   security_groups = [aws_security_group.instances.id]
   user_data       = <<-EOF
               #!/bin/bash
@@ -64,7 +64,7 @@ resource "aws_instance" "instance_1" {
 resource "aws_instance" "instance_2" {
   ami             = var.ami
   instance_type   = "t2.micro"
-  subnet_id = data.aws_subnet.public2.id
+  subnet_id       = data.aws_subnet.public2.id
   security_groups = [aws_security_group.instances.id]
   user_data       = <<-EOF
               #!/bin/bash
@@ -170,7 +170,7 @@ resource "aws_lb_listener_rule" "instances" {
 
 
 resource "aws_security_group" "alb" {
-  name = "tf01-alb-security-group"
+  name   = "tf01-alb-security-group"
   vpc_id = data.aws_vpc.selected.id
 }
 
